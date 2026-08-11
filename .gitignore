@@ -1,0 +1,25 @@
+# Binaries
+algoengine
+algoengine.exe
+*.exe
+
+# Sensitive Configuration & Credentials
+.env
+data_settings.json
+
+# Local Data Storage
+data/
+*.json
+!web/*.json
+
+# Logs & Temporary Files
+*.log
+scratch/
+.system_generated/
+.gemini/
+
+# OS / IDE Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

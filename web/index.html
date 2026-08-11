@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlgoEngine Trading Dashboard (Fyers v3)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0b0e14',
+                        cardBg: '#151924',
+                        cardBorder: '#2a2e3d',
+                        accentGreen: '#089981',
+                        accentRed: '#f23645',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- TradingView Lightweight Charts v4.x CDN -->
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0b0e14; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #2a2e3d; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-darkBg text-gray-200 min-h-screen flex flex-col">
+
+    <!-- Top Navigation / Header -->
+    <header class="bg-cardBg border-b border-cardBorder px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center space-x-3">
+            <div id="engine-status-dot" class="w-3 h-3 rounded-full bg-yellow-500 animate-pulse"></div>
+            <h1 class="text-xl font-bold text-white tracking-wide">AlgoEngine <span class="text-xs font-mono text-gray-400 font-normal">Fyers v3 Live</span></h1>
+        </div>
+
+        <div class="flex items-center space-x-6">
+            <!-- Settings Button -->
+            <button onclick="openSettingsModal()" class="flex items-center space-x-2 bg-darkBg hover:bg-cardBorder px-3 py-1.5 rounded-lg border border-cardBorder text-xs text-gray-200 transition">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <span>Fyers API Settings</span>
+            </button>
+
+            <!-- Connection Status Badge -->
+            <div class="flex items-center space-x-2 bg-darkBg px-3 py-1.5 rounded-lg border border-cardBorder text-xs">
+                <span id="api-status-dot" class="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
+                <span id="api-status-text" class="font-medium text-gray-300">Checking Auth...</span>
+            </div>
+
+            <!-- Logout Button -->
+            <button id="logout-btn" onclick="logout()" class="hidden flex items-center space-x-1.5 bg-red-950/40 hover:bg-red-900/60 text-red-300 px-3 py-1.5 rounded-lg border border-red-800/50 text-xs font-semibold transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                <span>Logout</span>
+            </button>
+
+            <!-- Uptime Indicator -->
+            <div class="text-xs text-gray-400">
+                Uptime: <span id="uptime-text" class="font-mono text-gray-200">00:00:00</span>
+            </div>
+
+            <!-- Live PnL Pill -->
+            <div class="bg-darkBg px-4 py-1.5 rounded-lg border border-cardBorder flex items-center space-x-2">
+                <span class="text-xs text-gray-400">Live PnL:</span>
+                <span id="header-pnl" class="text-sm font-bold font-mono text-gray-200">₹0.00</span>
+            </div>
+
+            <!-- Algo Start/Stop Toggle Switch -->
+            <div class="flex items-center space-x-3">
+                <span class="text-xs font-semibold text-gray-300">ALGO ENGINE</span>
+                <button id="algo-toggle-btn" onclick="toggleAlgo()" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-accentGreen focus:outline-none">
+                    <span id="algo-toggle-thumb" class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-5"></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 p-6 space-y-6 max-w-[1920px] mx-auto w-full">
+
+        <!-- Performance Metrics Grid -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <!-- Total PnL -->
+            <div class="bg-cardBg border border-cardBorder p-4 rounded-xl shadow-sm">
+                <div class="text-xs font-medium text-gray-400 uppercase tracking-wider">Total PnL</div>
+                <div id="metric-pnl" class="text-2xl font-bold font-mono mt-1 text-gray-200">₹0.00</div>
+                <div class="text-[11px] text-gray-400 mt-1">Realized + Unrealized</div>
+            </div>
+
+            <!-- Total Trades -->
+            <div class="bg-cardBg border border-cardBorder p-4 rounded-xl shadow-sm">
+                <div class="text-xs font-medium text-gray-400 uppercase tracking-wider">Total Trades</div>
+                <div id="metric-trades" class="text-2xl font-bold font-mono mt-1 text-white">0</div>
+                <div id="metric-winloss" class="text-[11px] text-gray-400 mt-1">0 Win / 0 Loss</div>
+            </div>
+
+            <!-- Win Rate % -->
+            <div class="bg-cardBg border border-cardBorder p-4 rounded-xl shadow-sm">
+                <div class="text-xs font-medium text-gray-400 uppercase tracking-wider">Win Rate</div>
+                <div id="metric-winrate" class="text-2xl font-bold font-mono mt-1 text-accentGreen">0.0%</div>
+                <div class="text-[11px] text-gray-400 mt-1">Target > 55%</div>
+            </div>
+
+            <!-- Max Drawdown % -->
+            <div class="bg-cardBg border border-cardBorder p-4 rounded-xl shadow-sm">
+                <div class="text-xs font-medium text-gray-400 uppercase tracking-wider">Max Drawdown</div>
+                <div id="metric-drawdown" class="text-2xl font-bold font-mono mt-1 text-gray-200">0.00%</div>
+                <div class="text-[11px] text-gray-400 mt-1">Risk Limit 3.0%</div>
+            </div>
+
+            <!-- Available Margin -->
+            <div class="bg-cardBg border border-cardBorder p-4 rounded-xl shadow-sm col-span-2 md:col-span-1">
+                <div class="text-xs font-medium text-gray-400 uppercase tracking-wider">Unused Margin</div>
+                <div id="metric-margin" class="text-2xl font-bold font-mono mt-1 text-blue-400">₹0.00</div>
+                <div class="text-[11px] text-gray-400 mt-1">Fyers Capital Balance</div>
+            </div>
+        </div>
+
+        <!-- Main Chart Section with Left Watchlist Sidebar -->
+        <div class="bg-cardBg border border-cardBorder rounded-xl p-4 flex flex-col space-y-4 relative">
+            <!-- Unauthenticated Login Requirement Banner -->
+            <div id="unauth-banner" class="absolute inset-0 bg-darkBg/90 backdrop-blur-md z-30 flex flex-col items-center justify-center p-6 text-center space-y-4 rounded-xl">
+                <div class="w-16 h-16 rounded-full bg-cardBorder flex items-center justify-center">
+                    <svg class="w-8 h-8 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                </div>
+                <h3 class="text-xl font-bold text-white">Fyers API v3 Login Required</h3>
+                <p class="text-sm text-gray-400 max-w-md">No live or dummy data will be loaded until you log in with your Fyers API v3 account. Please configure App ID & Secret Key in Settings and click Login.</p>
+                <div class="flex space-x-3">
+                    <button onclick="openSettingsModal()" class="px-5 py-2.5 rounded-lg bg-cardBorder hover:bg-gray-700 text-white font-medium transition">Open Settings ⚙️</button>
+                    <button onclick="openSettingsModal(); generateAuthURL();" class="px-5 py-2.5 rounded-lg bg-accentGreen hover:bg-emerald-600 text-white font-bold transition">Log In with Fyers</button>
+                </div>
+            </div>
+
+            <!-- Chart Bar Controls -->
+            <div class="flex flex-wrap items-center justify-between gap-4 pb-2 border-b border-cardBorder">
+                <div class="flex items-center space-x-3">
+                    <span id="current-chart-title" class="text-base font-bold text-white tracking-wide">NSE: ITC (ITC Limited)</span>
+
+                    <select id="symbol-select" onchange="changeSymbol()" class="bg-darkBg border border-cardBorder text-white text-xs font-semibold rounded-lg px-2.5 py-1 focus:outline-none focus:border-accentGreen">
+                        <option value="NSE:ITC-EQ" selected>NSE: ITC (Default)</option>
+                        <option value="NSE:SBIN-EQ">NSE: SBIN</option>
+                        <option value="NSE:NIFTY50-INDEX">NSE: NIFTY 50 INDEX</option>
+                        <option value="NSE:BANKNIFTY-INDEX">NSE: BANK NIFTY INDEX</option>
+                        <option value="NSE:RELIANCE-EQ">NSE: RELIANCE</option>
+                    </select>
+
+                    <div class="flex items-center space-x-1 bg-darkBg p-1 rounded-lg border border-cardBorder text-xs font-medium">
+                        <button id="period-15m-btn" onclick="changePeriod('15m')" class="px-2.5 py-1 rounded bg-cardBorder text-white font-bold">15m</button>
+                        <button id="period-1h-btn" onclick="changePeriod('1h')" class="px-2.5 py-1 rounded text-gray-400 hover:text-white">1h</button>
+                        <button id="period-1m-btn" onclick="changePeriod('1m')" class="px-2.5 py-1 rounded text-gray-400 hover:text-white">1m</button>
+                        <button id="period-5m-btn" onclick="changePeriod('5m')" class="px-2.5 py-1 rounded text-gray-400 hover:text-white">5m</button>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-4 text-xs">
+                    <div class="flex items-center space-x-1.5">
+                        <span class="w-3 h-3 rounded-full bg-accentGreen inline-block"></span>
+                        <span>EMA(9) Fast</span>
+                    </div>
+                    <div class="flex items-center space-x-1.5">
+                        <span class="w-3 h-3 rounded-full bg-orange-500 inline-block"></span>
+                        <span>EMA(21) Slow</span>
+                    </div>
+                    <div class="flex items-center space-x-1.5">
+                        <span class="w-3 h-3 rounded-full bg-purple-500 inline-block"></span>
+                        <span>VWAP</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Split View: Compact Stock Watchlist Sidebar + Lightweight Chart Container -->
+            <div class="flex flex-col lg:flex-row gap-4 h-[480px]">
+                <!-- Compact Stock Watchlist Sidebar -->
+                <div class="w-full lg:w-56 bg-darkBg border border-cardBorder rounded-lg flex flex-col flex-shrink-0">
+                    <div class="p-2.5 border-b border-cardBorder flex items-center justify-between">
+                        <span class="text-xs font-bold text-gray-300 uppercase tracking-wider">STOCK WATCHLIST</span>
+                        <span id="watchlist-count" class="bg-cardBorder text-gray-300 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">0</span>
+                    </div>
+                    <div id="watchlist-container" class="flex-1 overflow-y-auto custom-scrollbar p-1 space-y-1">
+                        <div class="text-center text-gray-500 text-xs py-8">Loading stock list...</div>
+                    </div>
+                </div>
+
+                <!-- Lightweight Chart Container -->
+                <div id="chart-container" class="flex-1 h-full relative rounded-lg overflow-hidden border border-cardBorder/50"></div>
+            </div>
+        </div>
+
+        <!-- Cash Market Historical Data Collector Manager Card -->
+        <div class="bg-cardBg border border-cardBorder rounded-xl p-5 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-4 border-b border-cardBorder pb-3">
+                <div>
+                    <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                        <span>Cash Market Historical Data Collector</span>
+                        <span id="data-status-badge" class="bg-blue-950 text-blue-300 border border-blue-800/60 text-[10px] px-2 py-0.5 rounded-full font-mono">Idle</span>
+                    </h3>
+                    <p class="text-xs text-gray-400 mt-0.5">Automated parallel 90-day backfill & incremental sync engine with rate-limit protection</p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <button onclick="triggerDataSync()" class="bg-accentGreen hover:bg-emerald-600 text-white font-bold px-3 py-2 rounded-lg transition flex items-center space-x-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <span>Sync Latest</span>
+                    </button>
+                    <button onclick="triggerDataRedownload()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-2 rounded-lg transition">
+                        <span>Re-download Full 90 Days</span>
+                    </button>
+                    <button onclick="triggerDataClear()" class="bg-red-950/60 hover:bg-red-900 text-red-300 border border-red-800/60 font-semibold px-3 py-2 rounded-lg transition">
+                        <span>Clear Data</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Controls & Diagnostic Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Stock List CSV Input Form -->
+                <div class="space-y-3 lg:col-span-1">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-300 mb-1">Target Stock List (CSV format without NSE: or -EQ)</label>
+                        <textarea id="data-stock-csv" rows="3" class="w-full bg-darkBg border border-cardBorder rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-accentGreen" placeholder="ITC, RELIANCE, SBIN, TCS, INFY"></textarea>
+                        <span class="text-[10px] text-gray-500 block mt-0.5">Example: <code class="text-gray-300">ITC, RELIANCE, SBIN, TCS, INFY</code></span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-300 mb-1">Candle Interval</label>
+                            <select id="data-interval" class="w-full bg-darkBg border border-cardBorder text-white text-xs font-semibold rounded-lg px-3 py-2 focus:outline-none focus:border-accentGreen">
+                                <option value="15m" selected>15 Minutes (15m - Default)</option>
+                                <option value="1h">1 Hour (1h)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-300 mb-1">Initial History</label>
+                            <input type="text" value="90 Days" disabled class="w-full bg-darkBg/60 border border-cardBorder text-gray-400 text-xs rounded-lg px-3 py-2 cursor-not-allowed">
+                        </div>
+                    </div>
+
+                    <button onclick="saveDataSettings()" class="w-full bg-cardBorder hover:bg-gray-700 text-white font-bold py-2 rounded-lg text-xs transition">
+                        Save Stock List & Download
+                    </button>
+                </div>
+
+                <!-- Storage Summary Table -->
+                <div class="lg:col-span-2 flex flex-col h-[180px]">
+                    <div class="flex items-center justify-between text-xs mb-2">
+                        <span class="font-semibold text-gray-300">Configured Stock Data Summary</span>
+                        <span id="data-summary-meta" class="font-mono text-gray-400 text-[11px]">0 Stocks &bull; 0 Total Bars</span>
+                    </div>
+                    <div class="flex-1 overflow-y-auto custom-scrollbar border border-cardBorder rounded-lg bg-darkBg">
+                        <table class="w-full text-left text-xs font-mono">
+                            <thead class="text-gray-400 border-b border-cardBorder uppercase text-[10px] sticky top-0 bg-cardBg">
+                                <tr>
+                                    <th class="py-2 px-3">Symbol</th>
+                                    <th class="py-2 px-3">Interval</th>
+                                    <th class="py-2 px-3">Total Bars</th>
+                                    <th class="py-2 px-3">Newest Candle</th>
+                                    <th class="py-2 px-3 text-right">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="data-summary-body" class="divide-y divide-cardBorder/40 text-gray-200">
+                                <tr>
+                                    <td colspan="5" class="py-6 text-center text-gray-500 font-sans">No stock data loaded yet</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid: Active Positions & Streaming System Terminal -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Active Positions Table -->
+            <div class="bg-cardBg border border-cardBorder rounded-xl p-4 flex flex-col h-[320px]">
+                <h3 class="text-sm font-semibold text-white uppercase tracking-wider mb-3 flex items-center justify-between">
+                    <span>Active Positions</span>
+                    <span id="open-pos-count" class="bg-darkBg text-xs font-mono text-gray-400 px-2 py-0.5 rounded-full border border-cardBorder">0 Open</span>
+                </h3>
+                <div class="flex-1 overflow-y-auto custom-scrollbar">
+                    <table class="w-full text-left text-xs font-mono">
+                        <thead class="text-gray-400 border-b border-cardBorder uppercase text-[10px]">
+                            <tr>
+                                <th class="py-2 px-2">Symbol</th>
+                                <th class="py-2 px-2">Side</th>
+                                <th class="py-2 px-2">Qty</th>
+                                <th class="py-2 px-2">Entry</th>
+                                <th class="py-2 px-2">LTP</th>
+                                <th class="py-2 px-2 text-right">PnL (₹)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="positions-table-body" class="divide-y divide-cardBorder/50 text-gray-200">
+                            <tr>
+                                <td colspan="6" class="py-8 text-center text-gray-500 font-sans">No active positions running</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Streaming Log Terminal -->
+            <div class="bg-cardBg border border-cardBorder rounded-xl p-4 flex flex-col h-[320px]">
+                <h3 class="text-sm font-semibold text-white uppercase tracking-wider mb-3 flex items-center justify-between">
+                    <span>Live Event Log</span>
+                    <button onclick="clearLogs()" class="text-[11px] text-gray-400 hover:text-white font-normal">Clear</button>
+                </h3>
+                <div id="log-terminal" class="flex-1 bg-darkBg rounded-lg p-3 font-mono text-xs text-gray-300 overflow-y-auto custom-scrollbar space-y-1.5 border border-cardBorder">
+                    <div class="text-gray-500 text-[11px]">[System Initializing...]</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Fyers API Credentials & Settings Modal Dialog -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-cardBg border border-cardBorder rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+            <div class="px-6 py-4 border-b border-cardBorder flex items-center justify-between">
+                <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+                    <span>Fyers API v3 Credentials</span>
+                </h2>
+                <button onclick="closeSettingsModal()" class="text-gray-400 hover:text-white text-xl font-bold">&times;</button>
+            </div>
+
+            <form id="settings-form" onsubmit="saveSettings(event)" class="p-6 space-y-4 text-xs">
+                <!-- App ID -->
+                <div>
+                    <label class="block text-gray-300 font-semibold mb-1">Fyers App ID (e.g. XC12345678-100)</label>
+                    <input type="text" id="setting-appid" class="w-full bg-darkBg border border-cardBorder rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-accentGreen" placeholder="Enter App ID">
+                </div>
+
+                <!-- Secret Key -->
+                <div>
+                    <label class="block text-gray-300 font-semibold mb-1">App Secret Key</label>
+                    <input type="password" id="setting-secret" class="w-full bg-darkBg border border-cardBorder rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-accentGreen" placeholder="Enter Secret Key">
+                </div>
+
+                <!-- Redirect URI -->
+                <div>
+                    <label class="block text-gray-300 font-semibold mb-1">Redirect URI</label>
+                    <input type="text" id="setting-redirect" class="w-full bg-darkBg border border-cardBorder rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-accentGreen" placeholder="http://localhost:8080/api/fyers/callback">
+                </div>
+
+                <!-- PIN -->
+                <div>
+                    <label class="block text-gray-300 font-semibold mb-1">2FA PIN (Optional)</label>
+                    <input type="password" id="setting-pin" class="w-full bg-darkBg border border-cardBorder rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-accentGreen" placeholder="Enter 4-digit PIN">
+                </div>
+
+                <!-- Auth Code Login Generator -->
+                <div class="bg-darkBg border border-cardBorder p-3 rounded-lg space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="font-semibold text-gray-300">Fyers OAuth Authentication</span>
+                        <button type="button" onclick="generateAuthURL()" class="bg-accentGreen hover:bg-emerald-600 text-white px-3 py-1.5 rounded font-bold transition">Log In with Fyers</button>
+                    </div>
+                    <div id="auth-url-container" class="hidden text-[11px]">
+                        <a id="auth-login-link" href="#" target="_blank" class="text-blue-400 hover:underline break-all block">Click here to Login & Authorize on Fyers</a>
+                    </div>
+                </div>
+
+                <!-- Auth Code -->
+                <div>
+                    <label class="block text-gray-300 font-semibold mb-1">Fyers Authorization Code (Captured automatically via redirect or paste manually)</label>
+                    <div class="flex space-x-2">
+                        <input type="text" id="setting-authcode" class="flex-1 bg-darkBg border border-cardBorder rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-accentGreen" placeholder="Auth Code">
+                        <button type="button" onclick="validateAuthCode()" class="bg-cardBorder hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-bold">Validate Code</button>
+                    </div>
+                </div>
+
+                <!-- Access Token -->
+                <div>
+                    <label class="block text-gray-300 font-semibold mb-1">Fyers Access Token (Generated)</label>
+                    <textarea id="setting-token" rows="2" class="w-full bg-darkBg border border-cardBorder rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-accentGreen" placeholder="Live Access Token"></textarea>
+                </div>
+
+                <div class="pt-2 flex justify-end space-x-3 border-t border-cardBorder">
+                    <button type="button" onclick="closeSettingsModal()" class="px-4 py-2 rounded-lg bg-darkBg hover:bg-cardBorder text-gray-300 font-medium">Cancel</button>
+                    <button type="submit" class="px-5 py-2 rounded-lg bg-accentGreen hover:bg-emerald-600 text-white font-bold">Save Configuration</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-cardBg border-t border-cardBorder px-6 py-3 text-center text-xs text-gray-500">
+        AlgoEngine GCP e2-micro Edition &bull; Memory footprint &lt; 80 MB &bull; TradingView Lightweight Charts &bull; Default Symbol: NSE:ITC-EQ
+    </footer>
+
+    <!-- App JavaScript -->
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+[Unit]
+Description=AlgoEngine Trading System Service
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/algoengine
+ExecStart=/opt/algoengine/algoengine
+Restart=always
+RestartSec=5
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=algoengine
+
+# Memory limits and performance tuning for GCP e2-micro
+MemoryMax=80M
+MemoryHigh=60M
+CPUWeight=100
+
+[Install]
+WantedBy=multi-user.target
