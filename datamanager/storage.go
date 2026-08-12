@@ -3,6 +3,7 @@ package datamanager
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -32,7 +33,9 @@ func NewStorageManager(dataDir string) *StorageManager {
 	if dataDir == "" {
 		dataDir = "data"
 	}
-	os.MkdirAll(dataDir, 0755)
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		log.Printf("[Storage Warning] Failed to create data directory %s: %v", dataDir, err)
+	}
 	return &StorageManager{
 		DataDir: dataDir,
 	}
@@ -48,6 +51,11 @@ func (sm *StorageManager) getFilePath(symbol, interval string) string {
 func (sm *StorageManager) SaveCandles(symbol, interval string, candles []*fyers.Candle) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
+
+	if err := os.MkdirAll(sm.DataDir, 0755); err != nil {
+		log.Printf("[Storage Error] Cannot create directory %s: %v", sm.DataDir, err)
+		return err
+	}
 
 	// Sort candles by timestamp ascending
 	sort.Slice(candles, func(i, j int) bool {
@@ -66,11 +74,17 @@ func (sm *StorageManager) SaveCandles(symbol, interval string, candles []*fyers.
 
 	data, err := json.MarshalIndent(unique, "", "  ")
 	if err != nil {
+		log.Printf("[Storage Error] Failed marshaling JSON for %s: %v", symbol, err)
 		return err
 	}
 
 	filePath := sm.getFilePath(symbol, interval)
-	return os.WriteFile(filePath, data, 0644)
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		log.Printf("[Storage Error] Failed writing file %s: %v", filePath, err)
+		return err
+	}
+
+	return nil
 }
 
 func (sm *StorageManager) AppendCandles(symbol, interval string, newCandles []*fyers.Candle) (int, error) {
@@ -95,6 +109,7 @@ func (sm *StorageManager) LoadCandles(symbol, interval string) []*fyers.Candle {
 
 	var candles []*fyers.Candle
 	if err := json.Unmarshal(data, &candles); err != nil {
+		log.Printf("[Storage Warning] Corrupted JSON file %s: %v", filePath, err)
 		return []*fyers.Candle{}
 	}
 	return candles
@@ -149,8 +164,8 @@ func (sm *StorageManager) GetDataSummary(symbols []string, interval string) []Sy
 		oldestStr := time.Unix(candles[0].Timestamp, 0).Format("2006-01-02 15:04")
 		newestStr := time.Unix(candles[n-1].Timestamp, 0).Format("2006-01-02 15:04")
 		diffSeconds := now - candles[n-1].Timestamp
-		
-		// 15m bar is fresh if updated within last 2 hours (taking market hours into account)
+
+		// 15m bar is fresh if updated within last 2 hours
 		isFresh := diffSeconds < (2 * 3600)
 
 		summaries = append(summaries, SymbolDataSummary{

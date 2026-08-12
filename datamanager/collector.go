@@ -270,7 +270,11 @@ func (c *Collector) downloadFull90Days(sym, interval, resolution string, now int
 	}
 
 	if len(allCandles) > 0 {
-		c.storage.SaveCandles(sym, interval, allCandles)
+		err := c.storage.SaveCandles(sym, interval, allCandles)
+		if err != nil {
+			log.Printf("[Collector Error] Failed saving candles for %s: %v", sym, err)
+			return 0
+		}
 		return len(allCandles)
 	}
 	return 0

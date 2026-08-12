@@ -58,7 +58,12 @@ func (c *DataConfig) Save() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(c.FilePath, data, 0644)
+	err = os.WriteFile(c.FilePath, data, 0644)
+	if err != nil {
+		log.Printf("[DataConfig Error] Failed to write settings file %s: %v", c.FilePath, err)
+		return err
+	}
+	return nil
 }
 
 func (c *DataConfig) Update(stockCSV, interval string) {
