@@ -12,10 +12,10 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -26,7 +26,7 @@ type DataStream struct {
 	appID       string
 	accessToken string
 	tickChan    chan *Tick
-	conn        *tls.Conn
+	conn        net.Conn
 	ctx         context.Context
 	cancel      context.CancelFunc
 	wg          sync.WaitGroup
@@ -296,7 +296,6 @@ func (ds *DataStream) parseAndEmitTick(payload []byte) {
 				if ts == 0 {
 					ts = time.Now().Unix()
 				}
-				// Use active current symbol fallback if symbol is in topic header
 				ds.mu.Lock()
 				syms := ds.symbols
 				ds.mu.Unlock()
