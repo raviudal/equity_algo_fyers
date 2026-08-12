@@ -15,20 +15,22 @@ import (
 )
 
 type Server struct {
-	cfg       *config.Config
-	state     *state.SystemState
-	hub       *ws.Hub
-	collector *datamanager.Collector
-	embedFS   embed.FS
+	cfg        *config.Config
+	state      *state.SystemState
+	hub        *ws.Hub
+	collector  *datamanager.Collector
+	dataStream *fyers.DataStream
+	embedFS    embed.FS
 }
 
-func NewServer(cfg *config.Config, sysState *state.SystemState, hub *ws.Hub, collector *datamanager.Collector, embedFS embed.FS) *Server {
+func NewServer(cfg *config.Config, sysState *state.SystemState, hub *ws.Hub, collector *datamanager.Collector, dataStream *fyers.DataStream, embedFS embed.FS) *Server {
 	return &Server{
-		cfg:       cfg,
-		state:     sysState,
-		hub:       hub,
-		collector: collector,
-		embedFS:   embedFS,
+		cfg:        cfg,
+		state:      sysState,
+		hub:        hub,
+		collector:  collector,
+		dataStream: dataStream,
+		embedFS:    embedFS,
 	}
 }
 
@@ -184,6 +186,10 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 
 		s.cfg.UpdateCredentials(req.FyersAppID, req.FyersSecretKey, req.FyersRedirectURI, req.FyersPin, req.FyersAccessToken)
 
+		// Update live data stream connection with new credentials
+		symbols := s.collector.GetDataConfig().GetNormalizedSymbols()
+		s.dataStream.UpdateCredentialsAndSymbols(req.FyersAppID, req.FyersAccessToken, symbols)
+
 		s.state.AddLog("Updated Fyers API Credentials")
 		s.hub.BroadcastEvent("system_log", "Updated Fyers API credentials")
 
@@ -241,6 +247,10 @@ func (s *Server) handleValidateCode(w http.ResponseWriter, r *http.Request) {
 	s.cfg.UpdateCredentials(appID, secretKey, redirectURI, pin, token)
 	s.cfg.UpdateAuthToken(req.AuthCode, token)
 
+	// Update live data stream connection with new credentials
+	symbols := s.collector.GetDataConfig().GetNormalizedSymbols()
+	s.dataStream.UpdateCredentialsAndSymbols(appID, token, symbols)
+
 	logMsg := "Fyers API v3 OAuth Login Verified! Live Access Token set."
 	s.state.AddLog(logMsg)
 	s.hub.BroadcastEvent("system_log", logMsg)
@@ -278,6 +288,10 @@ func (s *Server) handleCallback(w http.ResponseWriter, r *http.Request) {
 	s.cfg.UpdateCredentials(appID, secretKey, redirectURI, pin, token)
 	s.cfg.UpdateAuthToken(code, token)
 
+	// Update live data stream connection with new credentials
+	symbols := s.collector.GetDataConfig().GetNormalizedSymbols()
+	s.dataStream.UpdateCredentialsAndSymbols(appID, token, symbols)
+
 	logMsg := "Fyers OAuth callback received auth_code & validated Access Token automatically!"
 	s.state.AddLog(logMsg)
 	s.hub.BroadcastEvent("system_log", logMsg)
@@ -293,6 +307,9 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 
 	s.cfg.ClearAuth()
 	s.state.ClearSessionData()
+
+	// Stop data stream on logout
+	s.dataStream.UpdateCredentialsAndSymbols("", "", []string{})
 
 	logMsg := "User logged out of Fyers API session"
 	s.state.AddLog(logMsg)
@@ -324,6 +341,11 @@ func (s *Server) handleDataSettings(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.collector.GetDataConfig().Update(req.StockListCSV, req.Interval)
+
+		// Update live data stream with new stock symbols
+		symbols := s.collector.GetDataConfig().GetNormalizedSymbols()
+		appID, _, _, _, _, token, _ := s.cfg.GetCredentials()
+		s.dataStream.UpdateCredentialsAndSymbols(appID, token, symbols)
 
 		// Trigger sync for updated stock list asynchronously
 		go s.collector.SyncLatestData()

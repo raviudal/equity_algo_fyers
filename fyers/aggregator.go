@@ -12,6 +12,8 @@ type TickAggregator struct {
 	symbols      []string
 	current1m    map[string]*Candle
 	current5m    map[string]*Candle
+	current15m   map[string]*Candle
+	current1h    map[string]*Candle
 	onCandleUpd  CandleCallback
 	onCandleDone CandleCallback
 }
@@ -21,6 +23,8 @@ func NewTickAggregator(symbols []string, onUpdate, onComplete CandleCallback) *T
 		symbols:      symbols,
 		current1m:    make(map[string]*Candle),
 		current5m:    make(map[string]*Candle),
+		current15m:   make(map[string]*Candle),
+		current1h:    make(map[string]*Candle),
 		onCandleUpd:  onUpdate,
 		onCandleDone: onComplete,
 	}
@@ -34,76 +38,53 @@ func (a *TickAggregator) ProcessTick(tick *Tick) {
 	price := tick.LastPrice
 
 	// Process 1-minute bar
-	bar1mTime := tickTime.Truncate(time.Minute).Unix()
-	c1m, exists1m := a.current1m[tick.Symbol]
+	a.processBar(tick.Symbol, tickTime.Truncate(time.Minute).Unix(), "1m", price, tick.Volume, a.current1m)
 
-	if !exists1m || c1m.Timestamp != bar1mTime {
-		if exists1m {
-			c1m.IsClosed = true
+	// Process 5-minute bar
+	a.processBar(tick.Symbol, tickTime.Truncate(5*time.Minute).Unix(), "5m", price, tick.Volume, a.current5m)
+
+	// Process 15-minute bar
+	a.processBar(tick.Symbol, tickTime.Truncate(15*time.Minute).Unix(), "15m", price, tick.Volume, a.current15m)
+
+	// Process 1-hour bar
+	a.processBar(tick.Symbol, tickTime.Truncate(time.Hour).Unix(), "1h", price, tick.Volume, a.current1h)
+}
+
+func (a *TickAggregator) processBar(symbol string, barTime int64, period string, price float64, volume int64, candleMap map[string]*Candle) {
+	c, exists := candleMap[symbol]
+
+	if !exists || c.Timestamp != barTime {
+		if exists {
+			c.IsClosed = true
 			if a.onCandleDone != nil {
-				a.onCandleDone(c1m)
+				a.onCandleDone(c)
 			}
 		}
-		c1m = &Candle{
-			Symbol:    tick.Symbol,
-			Timestamp: bar1mTime,
+		c = &Candle{
+			Symbol:    symbol,
+			Timestamp: barTime,
 			Open:      price,
 			High:      price,
 			Low:       price,
 			Close:     price,
-			Volume:    tick.Volume,
-			Period:    "1m",
+			Volume:    volume,
+			Period:    period,
 			IsClosed:  false,
-			TimeStr:   time.Unix(bar1mTime, 0).Format("15:04"),
+			TimeStr:   time.Unix(barTime, 0).Format("15:04"),
 		}
-		a.current1m[tick.Symbol] = c1m
+		candleMap[symbol] = c
 	} else {
-		if price > c1m.High {
-			c1m.High = price
+		if price > c.High {
+			c.High = price
 		}
-		if price < c1m.Low {
-			c1m.Low = price
+		if price < c.Low {
+			c.Low = price
 		}
-		c1m.Close = price
-		c1m.Volume += tick.Volume
+		c.Close = price
+		c.Volume += volume
 	}
 
 	if a.onCandleUpd != nil {
-		a.onCandleUpd(c1m)
-	}
-
-	// Process 5-minute bar
-	bar5mTime := tickTime.Truncate(5 * time.Minute).Unix()
-	c5m, exists5m := a.current5m[tick.Symbol]
-
-	if !exists5m || c5m.Timestamp != bar5mTime {
-		if exists5m {
-			c5m.IsClosed = true
-			if a.onCandleDone != nil {
-				a.onCandleDone(c5m)
-			}
-		}
-		c5m = &Candle{
-			Symbol:    tick.Symbol,
-			Timestamp: bar5mTime,
-			Open:      price,
-			High:      price,
-			Low:       price,
-			Close:     price,
-			Volume:    tick.Volume,
-			Period:    "5m",
-			IsClosed:  false,
-			TimeStr:   time.Unix(bar5mTime, 0).Format("15:04"),
-		}
-		a.current5m[tick.Symbol] = c5m
-	} else {
-		if price > c5m.High {
-			c5m.High = price
-		}
-		if price < c5m.Low {
-			c5m.Low = price
-		}
-		c5m.Close = price
-		c5m.Volume += tick.Volume
+		a.onCandleUpd(c)
 	}
 }

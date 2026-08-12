@@ -73,8 +73,13 @@ func main() {
 		},
 	)
 
-	// 9. Initialize Data Stream (Fyers WebSocket Socket)
-	dataStream := fyers.NewDataStream(cfg.Symbols, cfg.FyersAppID, cfg.FyersAccessToken)
+	// 9. Initialize Data Stream (Fyers WebSocket Socket) with all Watchlist symbols
+	streamSymbols := collector.GetDataConfig().GetNormalizedSymbols()
+	if len(streamSymbols) == 0 {
+		streamSymbols = cfg.Symbols
+	}
+
+	dataStream := fyers.NewDataStream(streamSymbols, cfg.FyersAppID, cfg.FyersAccessToken)
 	dataStream.Start()
 	defer dataStream.Stop()
 
@@ -83,7 +88,7 @@ func main() {
 		tickChan := dataStream.GetTickChan()
 
 		for tick := range tickChan {
-			// Aggregate tick into OHLC bars
+			// Aggregate tick into OHLC bars (1m, 5m, 15m, 1h)
 			aggregator.ProcessTick(tick)
 
 			// Update active position PnLs with LTP
@@ -111,7 +116,7 @@ func main() {
 	}()
 
 	// 11. Start Embedded Static Web Server & REST API
-	srv := server.NewServer(cfg, sysState, wsHub, collector, embedWebFiles)
+	srv := server.NewServer(cfg, sysState, wsHub, collector, dataStream, embedWebFiles)
 	handler := srv.SetupRoutes()
 
 	serverAddr := ":" + cfg.Port
